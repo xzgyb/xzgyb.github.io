@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+  <title>关于Ruby rinda中的RingFinger.primary导致程序挂起的问题 | xzgyb的博客</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="og:type" content="blog">
+<meta name="og:title" content="关于Ruby rinda中的RingFinger.primary导致程序挂起的问题">
+<meta name="og:url" content="http://xzgyb.github.io//2012/03/16/ruby-drb-ring-problems/">
+<meta name="og:image">
+<meta name="og:site_name" content="xzgyb的博客">
+<meta name="og:description" content="最近在调查ruby的分布式编程，正在看&lt;&lt;DISTRIBUTED PROGRAMMINGWITH RUBY&gt;&gt;, 看到65页，其中有段程序，使用定制端口号，启动RingServer。
+ring_server.rbrequire 'rinda/ring'
+require 'rinda/tuplespace'
+
+DRb.start_service
+Rinda::RingServ">
+<meta name="twitter:card" content="summary">
+  
+    <link rel="alternative" href="/atom.xml" title="xzgyb的博客" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="/favicon.png">
+  
+  <link href="http://fonts.googleapis.com/css?family=Source+Code+Pro" rel="stylesheet" type="text/css">
+  <link rel="stylesheet" href="/css/style.css" type="text/css">
+  <!--[if lt IE 9]><script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script><![endif]-->
+  
+</head>
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">xzgyb的博客</a>
+      </h1>
+      
+        <h2 id="subtitle-wrap">
+          <a href="/" id="subtitle">人生唯有所执，方有所成!</a>
+        </h2>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"></a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+          <a id="nav-rss-link" class="nav-icon" href="/atom.xml" title="RSS Feed"></a>
+        
+        <a id="nav-search-btn" class="nav-icon" title="Search"></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" results="0" class="search-form-input" placeholder="Search"><input type="submit" value="&#xF002;" class="search-form-submit"><input type="hidden" name="q" value="site:http://xzgyb.github.io/"></form>
+      </div>
+    </div>
+  </div>
+</header>
+      <div class="outer">
+        <section id="main"><article id="post-ruby-drb-ring-problems" class="article article-type-post" itemscope itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2012/03/16/ruby-drb-ring-problems/" class="article-date">
+  <time datetime="2012-03-16T08:19:00.000Z" itemprop="datePublished">2012年03月16日</time>
+</a>
+    
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/ruby/">ruby</a>
+  </div>
+
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      关于Ruby rinda中的RingFinger.primary导致程序挂起的问题
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p><a id="more"></a><br>最近在调查ruby的分布式编程，正在看&lt;&lt;DISTRIBUTED PROGRAMMING<br>WITH RUBY&gt;&gt;, 看到65页，其中有段程序，使用定制端口号，启动RingServer。</p>
+<figure class="highlight ruby"><figcaption><span>ring_server.rb</span></figcaption><pre><span class="keyword">require</span> <span class="string">'rinda/ring'</span>
+<span class="keyword">require</span> <span class="string">'rinda/tuplespace'</span>
+
+<span class="constant">DRb</span>.start_service
+<span class="constant">Rinda::RingServer</span>.new(<span class="constant">Rinda::TupleSpace</span>.new, <span class="number">9000</span>)
+
+<span class="constant">DRb</span>.thread.join
+</pre></figure>
+
+<figure class="highlight ruby"><figcaption><span>finger.rb</span></figcaption><pre><span class="keyword">require</span> <span class="string">'rinda/ring'</span>
+
+<span class="constant">DRb</span>.start_service
+ring_server = <span class="constant">Rinda::RingFinger</span>.primary
+</pre></figure>
+
+<p>运行之</p>
+<figure class="highlight"><pre>  ruby ring_server<span class="preprocessor">.rb</span>
+  ruby finger<span class="preprocessor">.rb</span>
+</pre></figure>
+
+<p>按照书上的描述，<code>Rinda::RingFinger.primary</code>应该抛出<code>RuntimeError: RingNotFound</code>,<br>但是实际运行时，Rinda::RingFinger.primary的调用导致程序挂起，很是奇怪。</p>
+<p>没办法，拿起rdebug，调试一把，最终找到问题在<code>lib\ruby\1.9.1\rinda\ring.rb</code>, 其中有段代码</p>
+<figure class="highlight ruby"><figcaption><span>ring.rb 198行</span></figcaption><pre><span class="function"><span class="keyword">def</span> </span>lookup_ring_any(timeout=<span class="number">5</span>)
+  queue = <span class="constant">Queue</span>.new
+
+  th = <span class="constant">Thread</span>.new <span class="keyword">do</span>
+      <span class="keyword">self</span>.lookup_ring(timeout) <span class="keyword">do</span> |ts|
+        queue.push(ts)
+      <span class="keyword">end</span>
+      
+      queue.push(<span class="keyword">nil</span>)
+      <span class="keyword">while</span> it = queue.pop
+        <span class="variable">@rings</span>.push(it)
+	  <span class="keyword">end</span>
+  <span class="keyword">end</span>
+
+  <span class="variable">@primary</span> = queue.pop
+  raise(<span class="string">'RingNotFound'</span>) <span class="keyword">if</span> <span class="variable">@primary</span>.<span class="keyword">nil</span>?
+  <span class="variable">@primary</span>
+<span class="keyword">end</span>
+</pre></figure>
+
+<p>这个<code>lookup_ring_any</code>会被<code>Rinda::RingFinger.primary</code>调用, 而其中的代码</p>
+<figure class="highlight ruby"><pre>  	queue.push(<span class="keyword">nil</span>)
+	  <span class="keyword">while</span> it = queue.pop
+	    <span class="variable">@rings</span>.push(it)
+    <span class="keyword">end</span>
+</pre></figure>
+
+<p>和下面的代码</p>
+<figure class="highlight ruby"><pre>  <span class="variable">@primary</span> = queue.pop
+</pre></figure>
+
+<p>属于在2个不同的线程内，会产生竞争，可能queue中push的元素被</p>
+<figure class="highlight ruby"><pre><span class="keyword">while</span> it = queue.pop
+    <span class="variable">@rings</span>.push(it)
+<span class="keyword">end</span>
+</pre></figure>
+
+<p>这段代码取走，都放在<code>@rings</code>里,而外面的<code>@primary = queue.pop</code>，<br>这个将一直挂起，收不到数据。<br>知道了问题，改成如下，就好了.</p>
+<figure class="highlight ruby"><pre><span class="function"><span class="keyword">def</span> </span>lookup_ring_any(timeout=<span class="number">5</span>)
+  queue = <span class="constant">Queue</span>.new
+
+  th = <span class="constant">Thread</span>.new <span class="keyword">do</span>
+  	<span class="keyword">self</span>.lookup_ring(timeout) <span class="keyword">do</span> |ts|
+  	  queue.push(ts)
+  	<span class="keyword">end</span>
+  	queue.push(<span class="keyword">nil</span>)
+  <span class="keyword">end</span>
+
+  <span class="variable">@primary</span> = queue.pop
+  raise(<span class="string">'RingNotFound'</span>) <span class="keyword">if</span> <span class="variable">@primary</span>.<span class="keyword">nil</span>?
+
+  <span class="keyword">while</span> <span class="keyword">not</span> queue.empty?
+    <span class="variable">@rings</span>.push(queue.pop)
+  <span class="keyword">end</span>
+  
+  <span class="variable">@primary</span>
+<span class="keyword">end</span>
+</pre></figure>
+
+<p>另外说下我的ruby环境为ruby1.9.2p0, 换了ruby 1.8, 没有问题，<br>有时间在研究研究，可能跟2个版本的线程模型有关了。</p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://xzgyb.github.io/2012/03/16/ruby-drb-ring-problems/" data-id="cp2z4h9vc4vj0kgw" class="article-share-link">分享</a>
+      
+      
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2012/03/21/ruby-dump-command/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Newer</strong>
+      <div class="article-nav-title">
+        
+          Ruby 1.9 的dump开关
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2012/03/14/ruby-common-webaddrs/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Older</strong>
+      <div class="article-nav-title">ruby常用网站收集</div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">分类</h3>
+    <div class="widget">
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/ios/">ios</a><span class="category-list-count">6</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/ruby/">ruby</a><span class="category-list-count">3</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/随笔/">随笔</a><span class="category-list-count">2</span></li></ul>
+    </div>
+  </div>
+
+  
+    
+  
+    
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">归档</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2014/03">三月 2014</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2012/06">六月 2012</a><span class="archive-list-count">4</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2012/05">五月 2012</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2012/04">四月 2012</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2012/03">三月 2012</a><span class="archive-list-count">4</span></li></ul>
+    </div>
+  </div>
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">最新文章</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2014/03/17/rewrite-blog/">继续维护我的博客</a>
+          </li>
+        
+          <li>
+            <a href="/2012/06/18/objc-remark/">ios代码中可以加的一些特定标记的注释</a>
+          </li>
+        
+          <li>
+            <a href="/2012/06/18/ios-prog-layout/">iOS程序的布局</a>
+          </li>
+        
+          <li>
+            <a href="/2012/06/18/ios-opensource-progs/">iOS开源库收集</a>
+          </li>
+        
+          <li>
+            <a href="/2012/06/14/ios-develop-websites/">iOS开发相关网站收集</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      &copy; 2014 xzgyb<br>
+      Powered by <a href="http://zespia.tw/hexo/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+    </div>
+    <nav id="mobile-nav">
+  
+</nav>
+    
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+
+
+<script type="text/javascript" src="/js/script.js"></script>
+  </div>
+</body>
+</html>

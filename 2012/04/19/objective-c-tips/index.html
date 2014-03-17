@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+  <title>Objective C 惯用法收集 | xzgyb的博客</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="og:type" content="blog">
+<meta name="og:title" content="Objective C 惯用法收集">
+<meta name="og:url" content="http://xzgyb.github.io//2012/04/19/objective-c-tips/">
+<meta name="og:image">
+<meta name="og:site_name" content="xzgyb的博客">
+<meta name="og:description" content="@synthesize firstName = _firstName.
+ @synthesize合成属性时, 通常使用上面写法。
+ 原因是在一个类的实现中, 通常应该使用属性来访问实例变量, 即通过self.firstName来访问, 因为有时候一个属性的getter或setter方法可能被定制, 如果直接访问实例变量, 会破坏一个 对象的内部状态, 另外编译器合成的setter或getter">
+<meta name="twitter:card" content="summary">
+  
+    <link rel="alternative" href="/atom.xml" title="xzgyb的博客" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="/favicon.png">
+  
+  <link href="http://fonts.googleapis.com/css?family=Source+Code+Pro" rel="stylesheet" type="text/css">
+  <link rel="stylesheet" href="/css/style.css" type="text/css">
+  <!--[if lt IE 9]><script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script><![endif]-->
+  
+</head>
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">xzgyb的博客</a>
+      </h1>
+      
+        <h2 id="subtitle-wrap">
+          <a href="/" id="subtitle">人生唯有所执，方有所成!</a>
+        </h2>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"></a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+          <a id="nav-rss-link" class="nav-icon" href="/atom.xml" title="RSS Feed"></a>
+        
+        <a id="nav-search-btn" class="nav-icon" title="Search"></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" results="0" class="search-form-input" placeholder="Search"><input type="submit" value="&#xF002;" class="search-form-submit"><input type="hidden" name="q" value="site:http://xzgyb.github.io/"></form>
+      </div>
+    </div>
+  </div>
+</header>
+      <div class="outer">
+        <section id="main"><article id="post-objective-c-tips" class="article article-type-post" itemscope itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2012/04/19/objective-c-tips/" class="article-date">
+  <time datetime="2012-04-19T07:42:00.000Z" itemprop="datePublished">2012年04月19日</time>
+</a>
+    
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/ios/">ios</a>
+  </div>
+
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      Objective C 惯用法收集
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <p><a id="more"></a></p>
+<ol>
+<li><h3 id="@synthesize_firstName_=__firstName-">@synthesize firstName = _firstName.</h3>
+<p> @synthesize合成属性时, 通常使用上面写法。</p>
+<p> 原因是在一个类的实现中, 通常应该使用属性来访问实例变量, 即通过self.firstName来访问,<br> 因为有时候一个属性的getter或setter方法可能被定制, 如果直接访问实例变量, 会破坏一个<br> 对象的内部状态, 另外编译器合成的setter或getter方法, 是KVO compliant的, 直接使用<br> 属性时，会产生正常的KVO通知. </p>
+<p> 而如果使用@synthesize firstName来合成属性时,@interface中没有声明firstName实例变量时，<br> 则编译器生成一个firstName的实例变量, 这样在代码中, 很容易直接使用firstName,<br> 而忘记去用self.firstName来访问.</p>
+<p> 另外对于直接访问实例变量 _firstName, 一般都在init, dealloc方法中使用.</p>
+<p> 还有个好处就是, 把实例变量声明为_firstName, 在类似如下的方法中.</p>
+<p> -(id)initWithFirstName:(NSString *)firstName.</p>
+<p> 如果直接访问实例变量_firstName, 不会冲突，如果实例变量命名为firstName, 这跟参数名firstName冲突,<br> 则参数名不得不改成aFirstName或theFirstName类似的形式, 有点别扭.</p>
+<p> 坏处就是, 如果这个_firstName不声明成属性, 在类的实现中, 直接用<br> 这个_firstName时, 代码比较难看.</p>
+</li>
+<li><h3 id="调用属性时,_通常用self-firstName这种形式-">调用属性时, 通常用self.firstName这种形式.</h3>
+<p> 优点是简单, 直接.</p>
+<p> 缺点是当属性是结构体时, 有点混乱, 比如.<br> self.view.frame.orgin = CGPointMake(2, 3);</p>
+<p> 这个无法编译, 因为frame实际上是view的属性, 实际上调用的是[[self view] frame],<br> frame方法返回的是一个CGRect的临时变量.</p>
+</li>
+<li><h3 id="init方法的实现-">init方法的实现.</h3>
+<p> init方法的实现, 通常应该避免调用一些可能产生错误的方法或者一些<br> 运算量大的方法, 另外通常应该直接使用实例变量进行赋值, 而不用属性,<br> 因为如用属性的话, 有可能别人的继承这个类的子类, 覆盖了这个属性的setter方法,<br> 从而破坏这个类的init方法的完整性.</p>
+</li>
+<li><h3 id="在设计一个简单的数据模型类时,_最好设计成不可变的类,_如下:">在设计一个简单的数据模型类时, 最好设计成不可变的类, 如下:</h3>
+<figure class="highlight objc"><pre><span class="class"><span class="keyword">@interface</span> <span class="title">Person</span> : <span class="title">NSObject</span></span>
+<span class="keyword">@property</span> (<span class="keyword">nonatomic</span>, <span class="keyword">strong</span>, <span class="keyword">readonly</span>) <span class="built_in">NSString</span> *name;
+<span class="keyword">@property</span> (<span class="keyword">nonatomic</span>, <span class="keyword">assign</span>, <span class="keyword">readonly</span>) <span class="built_in">NSInteger</span> age;
+<span class="keyword">@end</span>
+</pre></figure>
+
+<p> 原因是这让代码更简单，更清晰，更安全.</p>
+</li>
+<li><h3 id="关于Designated_initializer-">关于Designated initializer.</h3>
+<p> 当子类实现了自己的Designated initializer, 也要覆盖基类的Designated initializer.</p>
+<figure class="highlight objc"><pre><span class="comment">// Person.h</span>
+<span class="class"><span class="keyword">@interface</span> <span class="title">Person</span> : <span class="title">NSObject</span></span>
+<span class="keyword">@property</span> (<span class="keyword">nonatomic</span>, <span class="keyword">strong</span>, <span class="keyword">readonly</span>) <span class="built_in">NSString</span>   *name;
+<span class="keyword">@property</span> (<span class="keyword">nonatomic</span>, <span class="keyword">assign</span>, <span class="keyword">readonly</span>) NSUInteger age;
+
+- (<span class="keyword">id</span>)initWithName:(<span class="built_in">NSString</span> *)name
+                age:(NSUInteger)age;
+<span class="keyword">@end</span>
+
+<span class="comment">// Person.m</span>
+<span class="preprocessor">#import <span class="title">"Person.h"</span></span>
+
+<span class="class"><span class="keyword">@implementation</span> <span class="title">Person</span></span>
+<span class="keyword">@synthesize</span> name = _name;
+<span class="keyword">@synthesize</span> age  = _age;
+
+- (<span class="keyword">id</span>)initWithName:(<span class="built_in">NSString</span> *)name
+                age:(NSUInteger)age
+{
+    <span class="keyword">self</span> = [<span class="keyword">super</span> init];
+    
+    <span class="keyword">if</span> (<span class="keyword">self</span>) {
+        _name = name;  
+        _age  = age;
+    }
+    
+    <span class="keyword">return</span> <span class="keyword">self</span>;
+}   
+
+<span class="comment">// Override the superclass's designated initializer.</span>
+- (<span class="keyword">id</span>)init {
+    <span class="keyword">return</span> [<span class="keyword">self</span> initWithName:@<span class="string">"anonymous"</span> age: <span class="number">0</span>];
+}                 
+<span class="keyword">@end</span>
+</pre></figure>
+
+<p> 这么做的原因是, 如果不覆盖基类的Designated initializer, 那么当调用子类从父类继承且没覆盖的<br> initXXX方法时, 子类的内部成员状态将变得不一致.</p>
+<p> 如果在子类的这个覆盖基类的Designated initializer方法中,<br> 不想给予实现，甚至可以抛出一个异常, 这样将更加安全。</p>
+</li>
+<li><h3 id="关于Exception的使用-">关于Exception的使用.</h3>
+<p>使用Exception来表示正常情况下不可能发生的错误, 通常表示一个方法的调用者违背<br>的这个方法的前置条件, 或者这个方法的内部状态不一致，通常表示开发者的错误.<br>而用户的错误，或者一些外部的错误(比如文件打开失败，网络连接失败), 通常用<br>返回值表示或者NSError表示.</p>
+<p>原因是, 如果大量的使用异常，会影响性能, 且会打乱程序的执行流.</p>
+</li>
+<li><h3 id="关于浮点数的使用-">关于浮点数的使用.</h3>
+<p>使用浮点数时, 总是显示的加上f后缀, 如 33.2f,<br>原因是更清晰，同时iOS对于float有优化.</p>
+</li>
+<li><h3 id="对于UIView的tag-">对于UIView的tag.</h3>
+<p>值从1000开始, 因为使用一些小的tag值，可能会跟UIKit的一些View的内置控件的tag值重复.<br>比如定制UIAlertView时，UIAlertView使用的控件tag值好像就包括0, 1等.</p>
+</li>
+<li><h3 id="关于@property_copy_attribute的使用-">关于@property copy attribute的使用.</h3>
+<p>对于immutable class, 如NSString, NSArray等，用copy属性, 因为有可能这个属性被赋值为<br>相应的mutalbe subclass, 如NSMutableString, NSMutableArray, 这样这个mutable object<br>如果被调用者被改变，属性的immutable语义就不对了，程序内部状态会被破坏.</p>
+<p>对于immutable class, 使用copy，是廉价的，事实上就是使用的retain,<br>而对Mutalbe object赋值后，可能就要进行真的copy了，对性能稍有影响，<br>但这也是必须的.</p>
+</li>
+<li><h3 id="关于实例变量-">关于实例变量.</h3>
+<p>实例变量放的位置，一个是都放在@interface中，另一个是在.m中作为@property,并用@synthesize<br>合成实例变量，不要@interface放一部分，.m中放一部分.<br>建议的是都放在.m中。<br>另外在iOS5下, 也支持在@implementation下直接定义实例变量的用法.</p>
+<figure class="highlight objc"><pre><span class="class"><span class="keyword">@implementation</span> {</span>
+  <span class="keyword">int</span> a;
+  <span class="keyword">int</span> b;
+}
+</pre></figure>
+
+<p>也支持在extension中定义实例变量.</p>
+<figure class="highlight objc"><figcaption><span>@interface ViewController() {</span></figcaption><pre>  <span class="keyword">int</span> a;
+  <span class="keyword">int</span> b;
+}
+<span class="annotation">@end</span>
+</pre></figure>
+
+<p>但不支持在category中定义实例变量.</p>
+</li>
+<li><h3 id="关于UITableViewController">关于UITableViewController</h3>
+<p>如果在TableView中使用UITextField, UITextView, 并且使用的是UITableViewController,<br>那么当用户手指点TableView的最后一个Cell的TextField或TextView时, UITableViewController会做<br>些处理，自动调整包含TextField或TextView的cell的位置，以不至于让Keyboard盖住包含<br>TextField或TextView的Cell, 如果单纯使用UIViewController和TableView，则需要响应keyboard通知<br>写代码调整.</p>
+</li>
+</ol>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="http://xzgyb.github.io/2012/04/19/objective-c-tips/" data-id="0z7q5wcgh4yddkrn" class="article-share-link">分享</a>
+      
+      
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2012/05/04/objc-hidden-tips/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Newer</strong>
+      <div class="article-nav-title">
+        
+          ObjC 一些不常用的函数及设置收集
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2012/03/21/ruby-dump-command/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Older</strong>
+      <div class="article-nav-title">Ruby 1.9 的dump开关</div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">分类</h3>
+    <div class="widget">
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/ios/">ios</a><span class="category-list-count">6</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/ruby/">ruby</a><span class="category-list-count">3</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/随笔/">随笔</a><span class="category-list-count">2</span></li></ul>
+    </div>
+  </div>
+
+  
+    
+  
+    
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">归档</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2014/03">三月 2014</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2012/06">六月 2012</a><span class="archive-list-count">4</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2012/05">五月 2012</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2012/04">四月 2012</a><span class="archive-list-count">1</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2012/03">三月 2012</a><span class="archive-list-count">4</span></li></ul>
+    </div>
+  </div>
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">最新文章</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2014/03/17/rewrite-blog/">继续维护我的博客</a>
+          </li>
+        
+          <li>
+            <a href="/2012/06/18/objc-remark/">ios代码中可以加的一些特定标记的注释</a>
+          </li>
+        
+          <li>
+            <a href="/2012/06/18/ios-prog-layout/">iOS程序的布局</a>
+          </li>
+        
+          <li>
+            <a href="/2012/06/18/ios-opensource-progs/">iOS开源库收集</a>
+          </li>
+        
+          <li>
+            <a href="/2012/06/14/ios-develop-websites/">iOS开发相关网站收集</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      &copy; 2014 xzgyb<br>
+      Powered by <a href="http://zespia.tw/hexo/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+    </div>
+    <nav id="mobile-nav">
+  
+</nav>
+    
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+
+
+<script type="text/javascript" src="/js/script.js"></script>
+  </div>
+</body>
+</html>
